@@ -26,6 +26,7 @@ def built_prompt(
         venues: typing.List[typing.Dict],
         page_num: typing.Optional[int] = None,
         page_size: int = DEFAULT_PAGE_SIZE,
+        indentation: str = ""
 ) -> str:
     prompt = "Select venue:\n"
     should_paginate = page_num is not None
@@ -47,7 +48,7 @@ def built_prompt(
             rating = venue['venue']['rating']['score']
         except KeyError:
             rating = "no rating"
-        prompt += f"\t{index}. {venue['title'].strip()} - {rating} - " \
+        prompt += f"{indentation}{index}. {venue['title'].strip()} - {rating} - " \
                   f"{venue['venue']['short_description'].strip()}\n"
 
     prompt += suffix
@@ -55,7 +56,7 @@ def built_prompt(
 
 
 def prompt_venue_selection(venues: typing.List[typing.Dict]) -> typing.Dict:
-    prompt = built_prompt(venues=venues)
+    prompt = built_prompt(venues=venues, indentation="\t")
     prompt += "\nSelection: "
     selection = int(input(prompt))
     return venues[selection - 1]

@@ -67,7 +67,6 @@ def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> Non
             text="The venues seems to be offline, I'll update you once it is open",
         )
         while not is_venue_online:
-            logger.info("Venue is offline, waiting a minute before checking again...")
             time.sleep(DEFAULT_INTERVAL_SECONDS)
             is_venue_online = wolt_checker.is_venue_online(venue=venue)
         context.bot.send_message(chat_id=chat_id, text="The venue is now online!\n"
