@@ -97,9 +97,12 @@ STATE_TO_HANDLER = {
 
 def default_message_handler(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
-    chat_info = state[chat_id]
-    handler = STATE_TO_HANDLER[chat_info.state]
-    handler(chat_id=chat_id, context=context, update=update)
+    if chat_id in state:
+        chat_info = state[chat_id]
+        handler = STATE_TO_HANDLER[chat_info.state]
+        handler(chat_id=chat_id, context=context, update=update)
+    else:
+        start_handler(update=update, context=context)
 
 
 def main():
