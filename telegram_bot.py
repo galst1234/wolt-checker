@@ -1,5 +1,4 @@
 import logging
-import time
 import typing
 
 from telegram import Update
@@ -58,7 +57,7 @@ def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> Non
     chat_info.venues = None
     is_venue_online = wolt_checker.is_venue_online(venue=venue)
     if is_venue_online:
-        context.bot.send_message(chat_id=chat_id, text="Venue is already online!\n"
+        context.bot.send_message(chat_id=chat_id, text="The venue is already online!\n"
                                                        "To search for another venue please reply /start")
         del state[chat_id]
     else:
@@ -66,15 +65,25 @@ def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> Non
             chat_id=chat_id,
             text="The venues seems to be offline, I'll update you once it is open",
         )
-        while not is_venue_online:
-            time.sleep(DEFAULT_INTERVAL_SECONDS)
-            is_venue_online = wolt_checker.is_venue_online(venue=venue)
+        context.job_queue.run_repeating(callback=_poll_venue, interval=DEFAULT_INTERVAL_SECONDS, context={
+            "chat_id": chat_id,
+            "venue": venue,
+        })
+
+
+def _poll_venue(context: CallbackContext) -> None:
+    chat_id = context.job.context["chat_id"]
+    venue = context.job.context["venue"]
+    is_venue_online = wolt_checker.is_venue_online(venue=venue)
+    logger.info("Polling for chat id: %s", chat_id)
+    if is_venue_online:
         context.bot.send_message(chat_id=chat_id, text="The venue is now online!\n"
                                                        "To search for another venue please reply /start")
         del state[chat_id]
+        context.job.schedule_removal()
 
 
-def _get_next_page(chat_id, context):
+def _get_next_page(chat_id: int, context: CallbackContext) -> None:
     chat_info = state[chat_id]
     logger.info("Got next page from chat id: %s", chat_id)
     chat_info.page_num += 1
@@ -96,7 +105,7 @@ STATE_TO_HANDLER = {
 }
 
 
-def default_message_handler(update: Update, context: CallbackContext):
+def default_message_handler(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
     if chat_id in state:
         chat_info = state[chat_id]
