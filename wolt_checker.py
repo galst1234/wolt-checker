@@ -15,7 +15,11 @@ DEFAULT_PAGE_SIZE = 10
 def get_venue_options(query: str) -> typing.List[typing.Dict]:
     response = requests.get(SEARCH_QUERY_URL_FORMAT.format(query=query))
     assert response, response.content
-    return response.json()["sections"][0]["items"]
+    first_selection = response.json()["sections"][0]
+    if "items" in first_selection:
+        return first_selection["items"]
+    else:
+        return []
 
 
 def built_prompt(

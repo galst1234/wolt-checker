@@ -40,9 +40,14 @@ def search_query_handler(chat_id: int, context: CallbackContext, update: Update)
     query = update.message.text
     logger.info("Got query from chat id: %s query: %s", chat_id, query)
     venues = wolt_checker.get_venue_options(query)
-    prompt = wolt_checker.built_prompt(venues=venues, page_num=0)
-    state[chat_id] = ChatInfo(state=ChatState.VENUE_SELECTION, venues=venues)
-    context.bot.send_message(chat_id=chat_id, text=prompt)
+    if venues:
+        prompt = wolt_checker.built_prompt(venues=venues, page_num=0)
+        state[chat_id] = ChatInfo(state=ChatState.VENUE_SELECTION, venues=venues)
+        context.bot.send_message(chat_id=chat_id, text=prompt)
+    else:
+        context.bot.send_message(chat_id=chat_id, text="Sorry, there's no venue matching your search\n"
+                                                       "If you'd like to try again please reply /start")
+        del state[chat_id]
 
 
 def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> None:
