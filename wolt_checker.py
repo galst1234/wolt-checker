@@ -10,6 +10,7 @@ SEARCH_QUERY_URL_FORMAT = \
     f"https://restaurant-api.wolt.com/v1/pages/search?q={{query}}&{LOCATION}"
 RESTAURANT_QUERY_URL_FORMAT = "https://restaurant-api.wolt.com/v3/venues/slug/{venue}"
 TRACK_ID_REGEX = re.compile("venue-(.*)")
+DEFAULT_PAGE_SIZE = 10
 
 
 def get_venue_options(query: str) -> typing.List[typing.Dict]:
@@ -18,15 +19,35 @@ def get_venue_options(query: str) -> typing.List[typing.Dict]:
     return response.json()["sections"][0]["items"]
 
 
-def built_prompt(venues: typing.List[typing.Dict]) -> str:
+def built_prompt(
+        venues: typing.List[typing.Dict],
+        page_num: typing.Optional[int] = None,
+        page_size: int = DEFAULT_PAGE_SIZE,
+) -> str:
     prompt = "Select venue:\n"
-    for index, venue in enumerate(venues, start=1):
+    should_paginate = page_num is not None
+    suffix = ""
+
+    if should_paginate:
+        page_start = page_num * page_size
+        page_end = page_start + page_size
+        indexed_venues = enumerate(venues[page_start:page_end], start=page_start + 1)
+        if page_num != 0:
+            prompt = ""
+        if page_end < len(venues):
+            suffix = "\nIf you can't find your venue here please reply \"next\""
+    else:
+        indexed_venues = enumerate(venues, start=1)
+
+    for index, venue in indexed_venues:
         try:
             rating = venue['venue']['rating']['score']
         except KeyError:
             rating = "no rating"
         prompt += f"\t{index}. {venue['title'].strip()} - {rating} - " \
                   f"{venue['venue']['short_description'].strip()}\n"
+
+    prompt += suffix
     return prompt
 
 
