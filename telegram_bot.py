@@ -59,7 +59,7 @@ def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> Non
     is_venue_online = wolt_checker.is_venue_online(venue=venue)
     if is_venue_online:
         context.bot.send_message(chat_id=chat_id, text="Venue is already online!\n"
-                                                       "To search for another venue please reply \"/start\"")
+                                                       "To search for another venue please reply /start")
         del state[chat_id]
     else:
         context.bot.send_message(
@@ -70,7 +70,7 @@ def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> Non
             time.sleep(DEFAULT_INTERVAL_SECONDS)
             is_venue_online = wolt_checker.is_venue_online(venue=venue)
         context.bot.send_message(chat_id=chat_id, text="The venue is now online!\n"
-                                                       "To search for another venue please reply \"/start\"")
+                                                       "To search for another venue please reply /start")
         del state[chat_id]
 
 
