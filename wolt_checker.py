@@ -6,8 +6,7 @@ import requests
 
 with open("location") as location_file:
     LOCATION = location_file.read()
-SEARCH_QUERY_URL_FORMAT = \
-    f"https://restaurant-api.wolt.com/v1/pages/search?q={{query}}&{LOCATION}"
+SEARCH_QUERY_URL_FORMAT = f"https://restaurant-api.wolt.com/v1/pages/search?q={{query}}&{LOCATION}"
 RESTAURANT_QUERY_URL_FORMAT = "https://restaurant-api.wolt.com/v3/venues/slug/{venue}"
 TRACK_ID_REGEX = re.compile("venue-(.*)")
 DEFAULT_PAGE_SIZE = 10
