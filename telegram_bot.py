@@ -3,11 +3,11 @@ import time
 import typing
 
 from telegram import Update
-from telegram.ext import Updater
 from telegram.ext import CallbackContext
 from telegram.ext import CommandHandler
 from telegram.ext import Filters
 from telegram.ext import MessageHandler
+from telegram.ext import Updater
 
 import wolt_checker
 from data_types import ChatState, ChatInfo
@@ -23,6 +23,7 @@ state: typing.Dict[int, ChatInfo] = {}
 
 def start_handler(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
+    logger.info("Got start request from chat id: %s", chat_id)
     context.bot.send_message(
         chat_id=chat_id,
         text="I'm a bot to update you about Wolt venue statuses!\n"
@@ -35,14 +36,17 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     state[chat_id] = ChatInfo(state=ChatState.START)
 
 
-def venue_selection_handler(chat_id: int, context: CallbackContext, update: Update) -> None:
-    venues = wolt_checker.get_venue_options(update.message.text)
+def search_query_handler(chat_id: int, context: CallbackContext, update: Update) -> None:
+    query = update.message.text
+    logger.info("Got query from chat id: %s query: %s", chat_id, query)
+    venues = wolt_checker.get_venue_options(query)
     prompt = wolt_checker.built_prompt(venues=venues)
     state[chat_id] = ChatInfo(state=ChatState.VENUE_SELECTION, venues=venues)
     context.bot.send_message(chat_id=chat_id, text=prompt)
 
 
-def is_online_handler(chat_id: int, context: CallbackContext, update: Update) -> None:
+def venue_selection_handler(chat_id: int, context: CallbackContext, update: Update) -> None:
+    logger.info("Got venue selection from chat id: %s", chat_id)
     selection = int(update.message.text)
     venue = state[chat_id].venues[selection - 1]
     state[chat_id].venues = None
@@ -64,8 +68,8 @@ def is_online_handler(chat_id: int, context: CallbackContext, update: Update) ->
 
 
 STATE_TO_HANDLER = {
-    ChatState.START: venue_selection_handler,
-    ChatState.VENUE_SELECTION: is_online_handler,
+    ChatState.START: search_query_handler,
+    ChatState.VENUE_SELECTION: venue_selection_handler,
 }
 
 
