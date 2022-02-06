@@ -12,3 +12,4 @@ class ChatState(enum.Enum):
 class ChatInfo:
     state: ChatState
     venues: typing.Optional[typing.List[typing.Dict]] = None
+    page_num: int = 0

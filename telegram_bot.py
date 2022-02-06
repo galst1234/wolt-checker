@@ -40,16 +40,17 @@ def search_query_handler(chat_id: int, context: CallbackContext, update: Update)
     query = update.message.text
     logger.info("Got query from chat id: %s query: %s", chat_id, query)
     venues = wolt_checker.get_venue_options(query)
-    prompt = wolt_checker.built_prompt(venues=venues)
+    prompt = wolt_checker.built_prompt(venues=venues, page_num=0)
     state[chat_id] = ChatInfo(state=ChatState.VENUE_SELECTION, venues=venues)
     context.bot.send_message(chat_id=chat_id, text=prompt)
 
 
-def venue_selection_handler(chat_id: int, context: CallbackContext, update: Update) -> None:
+def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> None:
+    chat_info = state[chat_id]
     logger.info("Got venue selection from chat id: %s", chat_id)
     selection = int(update.message.text)
-    venue = state[chat_id].venues[selection - 1]
-    state[chat_id].venues = None
+    venue = chat_info.venues[selection - 1]
+    chat_info.venues = None
     is_venue_online = wolt_checker.is_venue_online(venue=venue)
     if is_venue_online:
         context.bot.send_message(chat_id=chat_id, text="Venue is already online!")
@@ -65,6 +66,22 @@ def venue_selection_handler(chat_id: int, context: CallbackContext, update: Upda
             is_venue_online = wolt_checker.is_venue_online(venue=venue)
         context.bot.send_message(chat_id=chat_id, text="The venue is now online!")
         del state[chat_id]
+
+
+def _get_next_page(chat_id, context):
+    chat_info = state[chat_id]
+    logger.info("Got next page from chat id: %s", chat_id)
+    chat_info.page_num += 1
+    prompt = wolt_checker.built_prompt(venues=chat_info.venues, page_num=chat_info.page_num)
+    context.bot.send_message(chat_id=chat_id, text=prompt)
+
+
+def venue_selection_handler(chat_id: int, context: CallbackContext, update: Update) -> None:
+    message_text = update.message.text
+    if str.isdigit(message_text):
+        _select_venue(chat_id, context, update)
+    else:
+        _get_next_page(chat_id, context)
 
 
 STATE_TO_HANDLER = {
