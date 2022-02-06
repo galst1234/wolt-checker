@@ -25,7 +25,7 @@ def built_prompt(venues: typing.List[typing.Dict]) -> str:
             rating = venue['venue']['rating']['score']
         except KeyError:
             rating = "no rating"
-        prompt += f"\t{index}. {venue['title']} - {rating} - " \
+        prompt += f"\t{index}. {venue['title'].strip()} - {rating} - " \
                   f"{venue['venue']['short_description']}\n"
     return prompt
 
