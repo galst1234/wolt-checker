@@ -1,5 +1,5 @@
-access_token
-location
+wolt_checker/access_token
+wolt_checker/location
 
 __pycache__
 venv
