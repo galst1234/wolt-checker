@@ -1,5 +1,6 @@
 wolt_checker/access_token
 wolt_checker/location
+wolt_checker/allowed_chats.json
 
 __pycache__
 venv

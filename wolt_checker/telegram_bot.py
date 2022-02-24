@@ -1,3 +1,4 @@
+import json
 import logging
 import typing
 
@@ -14,25 +15,43 @@ from data_types import ChatState, ChatInfo
 with open("access_token") as access_token_file:
     ACCESS_TOKEN = access_token_file.read()
 DEFAULT_INTERVAL_SECONDS = 60
+with open("allowed_chats.json") as allowed_chats_file:
+    ALLOWED_CHATS = json.load(allowed_chats_file)
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 state: typing.Dict[int, ChatInfo] = {}
 
 
+def _is_chat_allowed(chat_id: int) -> bool:
+    return chat_id in ALLOWED_CHATS
+
+
+def _handle_not_allowed_chat(chat_id: int, context: CallbackContext):
+    logger.info("Got unauthorized start request from chat id: %s", chat_id)
+    context.bot.send_message(
+        chat_id=chat_id,
+        text="I'm sorry but you are currently an unrecognized user. To gain access to the bot please ask the owner"
+             f"to add you to the allowed users. Your chat id {chat_id}",
+    )
+
+
 def start_handler(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
-    logger.info("Got start request from chat id: %s", chat_id)
-    context.bot.send_message(
-        chat_id=chat_id,
-        text="I'm a bot to update you about Wolt venue statuses!\n"
-             "If at any point you'd like to restart please send /start",
-    )
-    context.bot.send_message(
-        chat_id=chat_id,
-        text="What is the name of the venue you are looking for?",
-    )
-    state[chat_id] = ChatInfo(state=ChatState.START)
+    if _is_chat_allowed(chat_id):
+        logger.info("Got start request from chat id: %s", chat_id)
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="I'm a bot to update you about Wolt venue statuses!\n"
+                 "If at any point you'd like to restart please send /start",
+        )
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="What is the name of the venue you are looking for?",
+        )
+        state[chat_id] = ChatInfo(state=ChatState.START)
+    else:
+        _handle_not_allowed_chat(chat_id, context)
 
 
 def search_query_handler(chat_id: int, context: CallbackContext, update: Update) -> None:
