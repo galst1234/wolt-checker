@@ -1,7 +1,9 @@
 import json
 import logging
-import typing
+from dataclasses import asdict
 
+import firebase_admin
+from firebase_admin import db
 from telegram import Update
 from telegram.ext import CallbackContext
 from telegram.ext import CommandHandler
@@ -12,15 +14,18 @@ from telegram.ext import Updater
 import wolt_checker
 from data_types import ChatState, ChatInfo
 
-with open("access_token") as access_token_file:
-    ACCESS_TOKEN = access_token_file.read()
+with open("config.json") as config_file:
+    config = json.load(config_file)
+    ACCESS_TOKEN = config["access_token"]
+    ALLOWED_CHATS = config["allowed_chats"]
+    DATABASE_URL = config["database_url"]
 DEFAULT_INTERVAL_SECONDS = 60
-with open("allowed_chats.json") as allowed_chats_file:
-    ALLOWED_CHATS = json.load(allowed_chats_file)
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
-state: typing.Dict[int, ChatInfo] = {}
+cred = firebase_admin.credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred, {"databaseURL": DATABASE_URL})
+state_ref = db.reference("/state")
 
 
 def _is_chat_allowed(chat_id: int) -> bool:
@@ -49,7 +54,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
             chat_id=chat_id,
             text="What is the name of the venue you are looking for?",
         )
-        state[chat_id] = ChatInfo(state=ChatState.START)
+        state_ref.child(str(chat_id)).set(asdict(ChatInfo(state=ChatState.START.value)))
     else:
         _handle_not_allowed_chat(chat_id, context)
 
@@ -60,16 +65,16 @@ def search_query_handler(chat_id: int, context: CallbackContext, update: Update)
     venues = wolt_checker.get_venue_options(query)
     if venues:
         prompt = wolt_checker.built_prompt(venues=venues, page_num=0)
-        state[chat_id] = ChatInfo(state=ChatState.VENUE_SELECTION, venues=venues)
+        state_ref.child(str(chat_id)).set(asdict(ChatInfo(state=ChatState.VENUE_SELECTION.value, venues=venues)))
         context.bot.send_message(chat_id=chat_id, text=prompt)
     else:
         context.bot.send_message(chat_id=chat_id, text="Sorry, there's no venue matching your search\n"
                                                        "If you'd like to try again please reply /start")
-        del state[chat_id]
+        state_ref.child(str(chat_id)).set({})
 
 
 def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> None:
-    chat_info = state[chat_id]
+    chat_info = ChatInfo(**state_ref.child(str(chat_id)).get())
     logger.info("Got venue selection from chat id: %s", chat_id)
     selection = int(update.message.text)
     venue = chat_info.venues[selection - 1]
@@ -78,7 +83,7 @@ def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> Non
     if is_venue_online:
         context.bot.send_message(chat_id=chat_id, text="The venue is already online!\n"
                                                        "To search for another venue please reply /start")
-        del state[chat_id]
+        state_ref.child(str(chat_id)).set({})
     else:
         context.bot.send_message(
             chat_id=chat_id,
@@ -98,12 +103,12 @@ def _poll_venue(context: CallbackContext) -> None:
     if is_venue_online:
         context.bot.send_message(chat_id=chat_id, text="The venue is now online!\n"
                                                        "To search for another venue please reply /start")
-        del state[chat_id]
+        state_ref.child(str(chat_id)).set({})
         context.job.schedule_removal()
 
 
 def _get_next_page(chat_id: int, context: CallbackContext) -> None:
-    chat_info = state[chat_id]
+    chat_info = ChatInfo(**state_ref.child(str(chat_id)).get())
     logger.info("Got next page from chat id: %s", chat_id)
     chat_info.page_num += 1
     prompt = wolt_checker.built_prompt(venues=chat_info.venues, page_num=chat_info.page_num)
@@ -119,15 +124,16 @@ def venue_selection_handler(chat_id: int, context: CallbackContext, update: Upda
 
 
 STATE_TO_HANDLER = {
-    ChatState.START: search_query_handler,
-    ChatState.VENUE_SELECTION: venue_selection_handler,
+    ChatState.START.value: search_query_handler,
+    ChatState.VENUE_SELECTION.value: venue_selection_handler,
 }
 
 
 def default_message_handler(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
-    if chat_id in state:
-        chat_info = state[chat_id]
+    chat_info_dict = state_ref.child(str(chat_id)).get()
+    if chat_info_dict is not None:
+        chat_info = ChatInfo(**chat_info_dict)
         handler = STATE_TO_HANDLER[chat_info.state]
         handler(chat_id=chat_id, context=context, update=update)
     else:

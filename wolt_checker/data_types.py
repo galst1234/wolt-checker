@@ -4,12 +4,12 @@ from dataclasses import dataclass
 
 
 class ChatState(enum.Enum):
-    START = 0
-    VENUE_SELECTION = 1
+    START = "start"
+    VENUE_SELECTION = "venue_selection"
 
 
 @dataclass
 class ChatInfo:
-    state: ChatState
+    state: str
     venues: typing.Optional[typing.List[typing.Dict]] = None
     page_num: int = 0
