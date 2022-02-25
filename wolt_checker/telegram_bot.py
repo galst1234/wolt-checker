@@ -93,6 +93,7 @@ def _select_venue(chat_id: int, context: CallbackContext, update: Update) -> Non
             "chat_id": chat_id,
             "venue": venue,
         })
+        state_ref.child(str(chat_id)).set({})
 
 
 def _poll_venue(context: CallbackContext) -> None:
@@ -103,7 +104,6 @@ def _poll_venue(context: CallbackContext) -> None:
     if is_venue_online:
         context.bot.send_message(chat_id=chat_id, text="The venue is now online!\n"
                                                        "To search for another venue please reply /start")
-        state_ref.child(str(chat_id)).set({})
         context.job.schedule_removal()
 
 
