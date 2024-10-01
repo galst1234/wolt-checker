@@ -8,14 +8,26 @@ import requests
 with open("config.json") as config_file:
     config = json.load(config_file)
     LOCATION = config["location"]
-SEARCH_QUERY_URL_FORMAT = f"https://restaurant-api.wolt.com/v1/pages/search?q={{query}}&{LOCATION}"
-RESTAURANT_QUERY_URL_FORMAT = "https://restaurant-api.wolt.com/v3/venues/slug/{venue}"
+
+SEARCH_QUERY_URL_FORMAT = f"https://restaurant-api.wolt.com/v1/pages/search"
+RESTAURANT_QUERY_URL_FORMAT = "https://consumer-api.wolt.com/order-xp/web/v1/venue/slug/{venue}/dynamic"
 TRACK_ID_REGEX = re.compile("venue-(.*)")
 DEFAULT_PAGE_SIZE = 10
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+}
+
 
 def get_venue_options(query: str) -> typing.List[typing.Dict]:
-    response = requests.get(SEARCH_QUERY_URL_FORMAT.format(query=query))
+    body = {
+        "q": query,
+        "lat": LOCATION["lat"],
+        "lon": LOCATION["lon"],
+        "target": None,
+    }
+
+    response = requests.post(SEARCH_QUERY_URL_FORMAT, json=body, headers=HEADERS)
     assert response, response.content
     first_selection = response.json()["sections"][0]
     if "items" in first_selection:
@@ -66,10 +78,16 @@ def prompt_venue_selection(venues: typing.List[typing.Dict]) -> typing.Dict:
 
 def is_venue_online(venue: typing.Dict) -> bool:
     venue_track_id = TRACK_ID_REGEX.match(venue["track_id"]).groups()[0]
-    response = requests.get(RESTAURANT_QUERY_URL_FORMAT.format(venue=venue_track_id))
+    query_params = {"lat": LOCATION["lat"], "lon": LOCATION["lon"]}
+    response = requests.get(RESTAURANT_QUERY_URL_FORMAT.format(venue=venue_track_id), params=query_params,
+                            headers=HEADERS)
     assert response, response.content
-    venue_info = response.json()["results"][0]
-    return venue_info["online"] and venue_info["delivery_specs"]["delivery_enabled"]
+    venue_info = response.json()
+    return (
+            venue_info["venue"]["online"]
+            and venue_info["venue"]["delivery_open_status"]["is_open"]
+            and venue_info["venue_raw"]["delivery_specs"]["delivery_enabled"]
+    )
 
 
 def wait_for_venue_availability(venue: typing.Dict) -> None:
